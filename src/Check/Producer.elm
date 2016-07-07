@@ -23,6 +23,9 @@ If your expected and actual functions need more than one input, pass them in as 
 ## Character Producers
 @docs char, upperCaseChar, lowerCaseChar, ascii, unicode
 
+## Other shite
+@docs convertEx, oneOfEx
+
 -}
 
 import Array exposing (Array)
@@ -343,6 +346,21 @@ convert f g prod =
         (Shrink.convert f g prod.shrinker)
 
 
+{-| Blah
+```elm
+convertExExample : Producer Example
+convertExExample = int |> convertEx Bar (\ex -> case ex of
+                                                Bar a -> Just a
+                                                _ -> Nothing)
+```
+-}
+convertEx : (a -> b) -> (b -> Maybe a) -> Producer a -> Producer b
+convertEx f g prod =
+  let generator = Random.map f prod.generator
+      shrinker = g >> Maybe.map prod.shrinker >> Maybe.withDefault Lazy.List.empty >> Lazy.List.map f in
+  Producer generator shrinker
+
+
 {-| Map a function over an producer. This works exactly like `convert`,
 except it does not require an inverse function, and consequently does no
 shrinking.
@@ -378,3 +396,11 @@ oneOf : List (Producer a) -> Producer a
 oneOf ps =
     let generator = ps |> List.map (\p -> p.generator) |> Random.Extra.choices
     in Producer generator Shrink.noShrink
+
+{-| Blah -}
+oneOfEx : List (Producer a, a -> Bool) -> Producer a
+oneOfEx ps =
+  let generator = ps |> List.map (\(p, _) -> p.generator) |> Random.Extra.choices
+      findSubShrinker a = ps |> List.filter (\(_,pred) -> pred a) |> List.head |> Maybe.map (\(p, _) -> p.shrinker) |> Maybe.withDefault Shrink.noShrink
+      shrinker a = findSubShrinker a a
+  in Producer generator shrinker
